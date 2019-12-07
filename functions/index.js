@@ -77,13 +77,13 @@ async function displayCart(conv) {
 
       console.log("SNAP", snapshots)
 
-      snapshots.forEach((docSnapshot) => {
+      snapshots.forEach(async (docSnapshot) => {
             console.log("TAG", docSnapshot.data())
             listOptions[`KEY_${docSnapshot.data().name}`] = {
                   title: docSnapshot.data().name,
                   description: `Rs. ${docSnapshot.data().price}, ${docSnapshot.data().quantity} kg`,
                   image: new Image({
-                        url: IMG_URL,
+                        url: await getImageURL(docSnapshot.data().name),
                         alt: "accessibility text"
                   })
             }
@@ -103,7 +103,8 @@ async function displayCart(conv) {
             //       names.push(value.title)
             // })
 
-            for (var [key, value] in Object.entries(listOptions)) {
+            for (var [key, value] of Object.entries(listOptions)) {
+                  console.log(key, value, "KEY VALUE")
                   names.push(value.title)
             }
 
@@ -140,6 +141,14 @@ async function addToCart(conv, item, qty) {
 
       var garb = await db.collection('users').doc(conv.user.email).collection('cart').doc(itemDetails.id).set(itemDetails)
       return Promise.resolve(garb)
+}
+
+async function getImageURL(keyword) {
+      keyword = keyword.split(" ")
+      keyword = keyword.join("+")
+      var callPromise = await fetch(`${config.apiEndpoint}&q=${keyword}`)
+      var response = await callPromise.json()
+      return response["hits"][0]["webformatURL"]
 }
 
 exports.veggieZap = functions.https.onRequest(app)
