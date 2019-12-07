@@ -25,7 +25,6 @@ const app = dialogflow({
 })
 
 app.intent('Default Welcome Intent', (conv) => {
-      conv.ask("hitt")
       const payload = conv.user.profile.payload
       if (typeof payload === 'undefined') {
             return conv.ask(new SignIn('To get your email'))
@@ -55,67 +54,12 @@ app.intent('sign in confirmation', (conv, params, signin) => {
 })
 
 app.intent('add to cart', conv => {
-      // function getCart(resolve) {
-      //       var cartItems = []
-
-      //       db.collection('users').doc(conv.user.email).collection('cart').get()
-      //             .then(docSnapshots => {
-      //                   for (var docSnapshot in docSnapshots) {
-      //                         cartItems.push({
-      //                               name: docSnapshot.data()["name"],
-      //                               price: docSnapshot.data()["price"]
-      //                         })
-      //                   }
-
-      //                   resolve()
-      //                   return cartItems
-      //             })
-      //             .catch(err => {
-      //                   console.log(err)
-      //                   throw err
-      //             })
-      // }
-
-      // function getListItems(conv, items) {
-      //       var listOptions = {}
-
-      //       items.forEach((item, i) => {
-      //             listOptions[`KEY_${i}`] = {
-      //                   title: item.name,
-      //                   description: item.quantity,
-      //                   image: new Image({ url: IMG_URL })
-      //             }
-      //       })
-
-      //       console.log("LIST OPTIONS", listOptions)
-
-      //       return listOptions
-      // }
-
-      // const cart = new Promise((resolve, reject) => getCart(resolve))
-
-      // var response = new Carousel({
-      //       title: 'Your Cart for today',
-      //       items: getListItems(conv, cart)
-      // })
-      // conv.ask('These are your items')
-      // conv.close(response)
-
-
-
       return new Promise((resolve, reject) => {
             console.log("EMAIL", conv.user.email)
 
             db.collection('users').doc(conv.user.email).collection('cart').get()
                   .then(docSnapshots => {
                         var cartItems = []
-
-                        // for (var docSnapshot in docSnapshots) {
-                        //       cartItems.push({
-                        //             name: docSnapshot["name"],
-                        //             price: docSnapshot["price"]
-                        //       })
-                        // }
 
                         console.log("SNAP", docSnapshots)
 
@@ -147,8 +91,8 @@ app.intent('add to cart', conv => {
                               title: 'Your Cart for today',
                               items: listOptions
                         })
-                        conv.ask('These are your items')
-                        conv.close(response)
+                        conv.ask('These are your items, What do you want to add?')
+                        conv.ask(response)
 
                         resolve()
                         return null
@@ -160,5 +104,51 @@ app.intent('add to cart', conv => {
 
       })
 })
+
+app.intent('add to cart - item', async (conv, params) => {
+      conv.ask(`Sure, ${params.amount} of ${params.any} are added to your cart, Say finish cart to finish adding items`)
+
+      var toAsk = await displayCart(conv)
+      conv.ask(toAsk)
+      conv.ask(new Suggestions(['Finish cart', 'Add another item']))
+})
+
+async function displayCart(conv) {
+      var snapshots = await db.collection('users').doc(conv.user.email).collection('cart').get()
+      var cartItems = []
+
+      console.log("SNAP", snapshots)
+
+      snapshots.forEach(docSnapshot => {
+            console.log("TAG", docSnapshot.data())
+            cartItems.push({
+                  name: docSnapshot.data().name,
+                  price: docSnapshot.data().price,
+                  quantity: docSnapshot.data().quantity
+            })
+      })
+
+      var listOptions = {}
+
+      cartItems.forEach((item, i) => {
+            listOptions[`KEY_${i}`] = {
+                  title: item.name,
+                  description: `${item.price}, ${item.quantity}`,
+                  image: new Image({
+                        url: IMG_URL,
+                        alt: "accessibility text"
+                  })
+            }
+      })
+
+      console.log("LIST OPTIONS", listOptions)
+
+      var response = new Carousel({
+            title: 'Your Cart for today',
+            items: listOptions
+      })
+
+      return Promise.resolve(response)
+}
 
 exports.veggieZap = functions.https.onRequest(app)
