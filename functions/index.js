@@ -15,8 +15,11 @@ const config = require('./config')
 const admin = require('firebase-admin')
 const firebase = require('firebase')
 
-admin.initializeApp()
-const db = admin.firestore()
+const firebaseConfig = config.veggieZapFirebaseConfig
+firebase.initializeApp(firebaseConfig)
+// admin.initializeApp(functions.config().firebase)
+// const db = admin.firestore()
+const db = firebase.firestore()
 const IMG_URL = 'https://www.vegsoc.org/wp-content/uploads/2019/03/vegetable-box-750x580.jpg'
 
 const app = dialogflow({
@@ -55,6 +58,7 @@ app.intent('sign in confirmation', (conv, params, signin) => {
 
 app.intent('add to cart', async conv => {
       conv.ask(`This is your cart, What do you want to add?`)
+      console.log(await db.collection('users').doc('gauravandkashyap@gmail.com').get())
       conv.ask(await displayCart(conv))
 })
 
@@ -77,17 +81,65 @@ async function displayCart(conv) {
 
       console.log("SNAP", snapshots)
 
-      snapshots.forEach(async (docSnapshot) => {
-            console.log("TAG", docSnapshot.data())
+      var docSnapshots = []
+      snapshots.forEach(docSnapshot => { docSnapshots.push(docSnapshot.data()) })
+
+      var promises = []
+      docSnapshots.forEach(docSnapshot => {
+            promises.push(fetch(`${config.apiEndpoint}&q=${docSnapshot.name}`))
+      })
+
+      console.log("PROMISES", promises)
+
+      var responses = await Promise.all(promises)
+
+      console.log("RESPONSES", responses)
+
+      var datas = []
+      responses.forEach(response => {
+            datas.push(response.json())
+      })
+
+      var final = await Promise.all(datas)
+
+      console.log("FINAL", final)
+      console.log("FINAL 1", final[0])
+      console.log("FINAL 2", final[0].hits)
+      console.log("FINAL 3", final[0].hits[0].webformatURL)
+
+      let i = 0
+      snapshots.forEach(docSnapshot => {
+            console.log("FOR EACH", i, final[i])
             listOptions[`KEY_${docSnapshot.data().name}`] = {
                   title: docSnapshot.data().name,
                   description: `Rs. ${docSnapshot.data().price}, ${docSnapshot.data().quantity} kg`,
                   image: new Image({
-                        url: await getImageURL(docSnapshot.data().name),
+                        url: final[i].hits[0].webformatURL,
                         alt: "accessibility text"
                   })
             }
+            i++
       })
+
+      // for (var [key, value] of Object.entries(listOptions)) {
+      //       var keyword = value.title.split(" ")
+      //       keyword = keyword.join("+")
+
+      //       console.log("SENT")
+      //       var response = await fetch(`${config.apiEndpoint}&q=${keyword}`)
+      //       var data = await response.json()
+
+      //       console.log("GET SENT", data)
+
+      //       var url = data["hits"][0]["webformatURL"]
+
+      //       console.log("URL", url)
+
+      //       value["image"] = new Image({
+      //             url: url,
+      //             alt: "accessibility text"
+      //       })
+      // }
 
       console.log("LIST OPTIONS", listOptions)
 
@@ -143,12 +195,24 @@ async function addToCart(conv, item, qty) {
       return Promise.resolve(garb)
 }
 
-async function getImageURL(keyword) {
+async function getImageURL(keyword, resolve) {
       keyword = keyword.split(" ")
       keyword = keyword.join("+")
+
+      fetch(`${config.apiEndpoint}&q=${keyword}`)
+            .then(response => response.json())
+            .then(data => {
+                  return resolve(data["hits"][0]["webformatURL"])
+            })
+            .catch(err => Promise.reject(err))
+
       var callPromise = await fetch(`${config.apiEndpoint}&q=${keyword}`)
       var response = await callPromise.json()
-      return response["hits"][0]["webformatURL"]
+
+      console.log("GET", response)
+
+      return Promise.resolve(response["hits"][0]["webformatURL"])
 }
 
 exports.veggieZap = functions.https.onRequest(app)
+exports.areaAlert = functions.https.onRequest(app)
