@@ -58,7 +58,6 @@ app.intent('sign in confirmation', (conv, params, signin) => {
 
 app.intent('add to cart', async conv => {
       conv.ask(`This is your cart, What do you want to add?`)
-      console.log(await db.collection('users').doc('gauravandkashyap@gmail.com').get())
       conv.ask(await displayCart(conv))
 })
 
@@ -101,11 +100,6 @@ async function displayCart(conv) {
       })
 
       var final = await Promise.all(datas)
-
-      console.log("FINAL", final)
-      console.log("FINAL 1", final[0])
-      console.log("FINAL 2", final[0].hits)
-      console.log("FINAL 3", final[0].hits[0].webformatURL)
 
       let i = 0
       snapshots.forEach(docSnapshot => {
